@@ -89,7 +89,7 @@ Return ONLY the tweet text. Nothing else."""
 
 def get_model():
     genai.configure(api_key=GEMINI_API_KEY)
-    return genai.GenerativeModel("gemini-2.0-flash")
+    return genai.GenerativeModel("gemini-1.5-flash")
 
 
 def call_gemini(model, prompt, retries=3):
