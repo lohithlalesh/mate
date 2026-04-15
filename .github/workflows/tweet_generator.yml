@@ -1,45 +1,32 @@
- name: Simplify Suite - Tweet Generator                                                                                                              
-                                                                                                                                                      
-  "on":
+name: tweet-generator                                                                                                                               
+                                          
+  on:                                                                                                                                                 
     schedule:                                                                                                                                         
-      - cron: "0 */4 * * *"               
+      - cron: 0 */4 * * *                                                                                                                             
     workflow_dispatch:                                                                                                                                
                                                                                                                                                       
   permissions:                                                                                                                                        
     contents: write                                                                                                                                   
-                                                                                                                                                      
-  jobs:                                                                                                                                               
+
+  jobs:
     generate:
-      runs-on: ubuntu-latest                                                                                                                          
-      timeout-minutes: 15                                   
-
-      steps:
-        - name: Checkout repo
-          uses: actions/checkout@v4
+      runs-on: ubuntu-latest
+      steps:                                  
+        - uses: actions/checkout@v4       
           with:
-            token: ${{ secrets.GITHUB_TOKEN }}
-                                              
-        - name: Set up Python             
-          uses: actions/setup-python@v5
+            token: ${{ secrets.GITHUB_TOKEN }}                                                                                                        
+        - uses: actions/setup-python@v5
           with:                                                                                                                                       
-            python-version: "3.11"
-                                                                                                                                                      
-        - name: Install dependencies                        
-          run: pip install -r requirements.txt
-
-        - name: Run tweet generator           
-          env:                            
+            python-version: 3.11                            
+        - run: pip install -r requirements.txt
+        - run: python generate_tweets.py
+          env:                                                                                                                                        
             GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          run: python generate_tweets.py                                                                                                              
-   
-        - name: Commit updated tweet queue                                                                                                            
-          run: |                                            
-            git config --local user.email "tweetbot@simplifysuite.io"
-            git config --local user.name "Simplify Tweet Bot"
-            if [ -f tweets_queue.xlsx ]; then
-              git add tweets_queue.xlsx
-              git diff --staged --quiet || git commit -m "Add tweets $(date +'%Y-%m-%d %H:%M UTC')"                                                   
-              git push                        
-            else                                                                                                                                      
-              echo "tweets_queue.xlsx not created - check the Run tweet generator step for errors"
-            fi                     
+        - run: |                                                                                                                                      
+            git config --local user.email "bot@simplifysuite.io"
+            git config --local user.name "Tweet Bot"
+            if [ -f tweets_queue.xlsx ]; then                                                                                                         
+              git add tweets_queue.xlsx       
+              git diff --staged --quiet || git commit -m "Add tweets"                                                                                 
+              git push                                      
+            fi                   
