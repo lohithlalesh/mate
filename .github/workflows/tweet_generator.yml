@@ -1,4 +1,4 @@
-name: Simplify Suite — Tweet Generator                                                                                                              
+name: Simplify Suite - Tweet Generator                                                                                                              
                                                                                                                                                       
   on:
     schedule:                                                                                                                                         
@@ -15,31 +15,31 @@ name: Simplify Suite — Tweet Generator
 
       steps:
         - name: Checkout repo
-          uses: actions/checkout@v4           
-          with:                           
+          uses: actions/checkout@v4
+          with:
             token: ${{ secrets.GITHUB_TOKEN }}
-                                                                                                                                                      
+                                          
         - name: Set up Python
           uses: actions/setup-python@v5                                                                                                               
-          with:                                             
-            python-version: "3.11"            
-                                          
+          with:
+            python-version: "3.11"                                                                                                                    
+                                                            
         - name: Install dependencies
-          run: pip install -r requirements.txt                                                                                                        
-   
-        - name: Run tweet generator                                                                                                                   
-          env:                                              
-            GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          run: python generate_tweets.py      
-                                          
-        - name: Commit updated tweet queue
-          run: |                                                                                                                                      
+          run: pip install -r requirements.txt
+                                              
+        - name: Run tweet generator       
+          env:
+            GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}                                                                                                 
+          run: python generate_tweets.py
+                                                                                                                                                      
+        - name: Commit updated tweet queue                  
+          run: |
             git config --local user.email "tweetbot@simplifysuite.io"
-            git config --local user.name "Simplify Tweet Bot"                                                                                         
-            if [ -f tweets_queue.xlsx ]; then               
-              git add tweets_queue.xlsx   
+            git config --local user.name "Simplify Tweet Bot"
+            if [ -f tweets_queue.xlsx ]; then
+              git add tweets_queue.xlsx
               git diff --staged --quiet || git commit -m "Add tweets $(date +'%Y-%m-%d %H:%M UTC')"                                                   
-              git push                                                                                                                                
+              git push                        
             else                                                                                                                                      
-              echo "tweets_queue.xlsx not created — check the Run tweet generator step for errors"                                                    
-            fi                                            
+              echo "tweets_queue.xlsx not created - check the Run tweet generator step for errors"
+            fi                    
