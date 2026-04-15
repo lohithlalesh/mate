@@ -13,11 +13,11 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from datetime import datetime
-import google.generativeai as genai
+from groq import Groq
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 OUTPUT_FILE    = "tweets_queue.xlsx"
 MAX_PER_FEED   = 8      # articles pulled per RSS feed per run
 MAX_TWEETS     = 12     # max tweets generated per run
@@ -85,21 +85,28 @@ DO NOT:
 Return ONLY the tweet text. Nothing else."""
 
 
-# ── Gemini Setup ──────────────────────────────────────────────────────────────
+# ── Groq Setup ────────────────────────────────────────────────────────────────
 
 def get_model():
-    genai.configure(api_key=GEMINI_API_KEY)
-    return genai.GenerativeModel("gemini-1.5-flash")
+    return Groq(api_key=GROQ_API_KEY)
 
 
-def call_gemini(model, prompt, retries=3):
-    """Call Gemini with simple retry logic."""
+def call_groq(client, system_prompt, user_content, retries=3):
+    """Call Groq with simple retry logic."""
     for attempt in range(retries):
         try:
-            response = model.generate_content(prompt)
-            return response.text.strip()
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_content},
+                ],
+                temperature=0.7,
+                max_tokens=500,
+            )
+            return response.choices[0].message.content.strip()
         except Exception as e:
-            print(f"  Gemini error (attempt {attempt+1}): {e}")
+            print(f"  Groq error (attempt {attempt+1}): {e}")
             if attempt < retries - 1:
                 time.sleep(5)
     return None
@@ -169,28 +176,24 @@ def deduplicate(articles, processed_urls):
 
 # ── Relevance Filtering ───────────────────────────────────────────────────────
 
-def filter_relevant(model, articles):
-    """Ask Gemini to filter articles for relevance. Returns list of relevant articles."""
+def filter_relevant(client, articles):
+    """Ask Groq to filter articles for relevance. Returns list of relevant articles."""
     if not articles:
         return []
 
-    # Bundle into a numbered list for Gemini
     article_list = "\n".join(
         f'{i}. Title: "{a["title"]}" | Source: {a["source"]} | Summary: {a["summary"][:200]}'
         for i, a in enumerate(articles)
     )
 
-    prompt = f"{FILTER_PROMPT}\n\nArticles:\n{article_list}"
     print("\nFiltering for relevance...")
-    raw = call_gemini(model, prompt)
+    raw = call_groq(client, FILTER_PROMPT, f"Articles:\n{article_list}")
 
     if not raw:
-        print("  Gemini filter failed — skipping run")
+        print("  Groq filter failed — skipping run")
         return []
 
-    # Parse JSON response
     try:
-        # Strip markdown code blocks if Gemini wrapped it
         clean = raw.replace("```json", "").replace("```", "").strip()
         result = json.loads(clean)
         relevant_indices = [r["index"] for r in result if isinstance(r, dict) and "index" in r]
@@ -199,28 +202,20 @@ def filter_relevant(model, articles):
         return relevant
     except json.JSONDecodeError:
         print(f"  Could not parse filter response: {raw[:200]}")
-        # Fallback: return first 5 articles
         return articles[:5]
 
 
 # ── Tweet Generation ──────────────────────────────────────────────────────────
 
-def generate_tweet(model, article):
+def generate_tweet(client, article):
     """Generate a single tweet for an article."""
-    prompt = f"""{TWEET_PROMPT}
+    user_content = f"Article:\nTitle: {article['title']}\nSource: {article['source']}\nSummary: {article['summary']}"
 
-Article:
-Title: {article['title']}
-Source: {article['source']}
-Summary: {article['summary']}"""
-
-    raw = call_gemini(model, prompt)
+    raw = call_groq(client, TWEET_PROMPT, user_content)
     if not raw:
         return None
 
-    # Clean up common Groq/Gemini artifacts
-    tweet = raw.strip()
-    tweet = tweet.strip('"').strip("'")
+    tweet = raw.strip().strip('"').strip("'")
     if tweet.lower().startswith("tweet:"):
         tweet = tweet[6:].strip()
 
@@ -297,14 +292,14 @@ def append_tweets(wb, ws, new_rows):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    if not GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY environment variable not set")
+    if not GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY environment variable not set")
 
     print("=" * 60)
     print(f"Simplify Suite Tweet Generator — {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}")
     print("=" * 60)
 
-    model = get_model()
+    client = get_model()
 
     # 1. Fetch articles
     print("\n[1/4] Fetching RSS feeds...")
@@ -321,7 +316,7 @@ def main():
 
     # 3. Filter for relevance
     print("\n[3/4] Filtering for Simplify-relevant content...")
-    relevant = filter_relevant(model, fresh_articles)
+    relevant = filter_relevant(client, fresh_articles)
 
     if not relevant:
         print("No relevant articles found this run. Exiting.")
@@ -335,7 +330,7 @@ def main():
     new_rows = []
     for i, article in enumerate(relevant, start=1):
         print(f"  [{i}/{len(relevant)}] {article['title'][:60]}...")
-        tweet = generate_tweet(model, article)
+        tweet = generate_tweet(client, article)
         if tweet:
             new_rows.append([
                 tweet,
