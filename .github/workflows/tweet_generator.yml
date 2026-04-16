@@ -1,32 +1,38 @@
-  name: tweet-generator                                                                                                                               
-                                          
+ name: Simplify Suite - Tweet Generator                                                                                                              
+                                                                                                                                                      
   on:                                                                                                                                                 
     schedule:                                                                                                                                         
-      - cron: 0 */4 * * *                                                                                                                             
-    workflow_dispatch:                                                                                                                                
-                                                                                                                                                      
-  permissions:                                                                                                                                        
-    contents: write                                                                                                                                   
+      - cron: 0 */4 * * *                                   
+    workflow_dispatch:
 
-  jobs:
+  permissions:
+    contents: write
+                                              
+  jobs:                                   
     generate:
-      runs-on: ubuntu-latest
-      steps:                                  
-        - uses: actions/checkout@v4       
+      runs-on: ubuntu-latest                                                                                                                          
+      timeout-minutes: 15
+                                                                                                                                                      
+      steps:                                                
+        - uses: actions/checkout@v4
           with:
-            token: ${{ secrets.GITHUB_TOKEN }}                                                                                                        
-        - uses: actions/setup-python@v5
-          with:                                                                                                                                       
-            python-version: 3.11                            
-        - run: pip install -r requirements.txt
-        - run: python generate_tweets.py
-          env:                                                                                                                                        
+            token: ${{ secrets.GITHUB_TOKEN }}
+                                              
+        - uses: actions/setup-python@v5   
+          with:
+            python-version: "3.11"                                                                                                                    
+   
+        - run: pip install -r requirements.txt                                                                                                        
+                                                            
+        - run: python generate_tweets.py      
+          env:                            
             GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        - run: |                                                                                                                                      
-            git config --local user.email "bot@simplifysuite.io"
+            GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}                                                                       
+            GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+                                                                                                                                                      
+        - run: |                                            
+            git config --local user.email "bot@simplifysuite.io"                                                                                      
             git config --local user.name "Tweet Bot"
-            if [ -f tweets_queue.xlsx ]; then                                                                                                         
-              git add tweets_queue.xlsx       
-              git diff --staged --quiet || git commit -m "Add tweets"                                                                                 
-              git push                                      
-            fi  
+            git add processed_urls.txt || true                                                                                                        
+            git diff --staged --quiet || git commit -m "Update processed urls $(date +%Y-%m-%d)"
+            git push       
