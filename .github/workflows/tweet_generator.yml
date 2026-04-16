@@ -1,4 +1,4 @@
-name: Simplify Suite - Tweet Generator                                                                                                              
+  name: Simplify Suite - Tweet Generator                                                                                                              
                                                                                                                                                       
   on:                                     
     schedule:                                                                                                                                         
@@ -35,4 +35,4 @@ name: Simplify Suite - Tweet Generator
             git config --local user.name "Tweet Bot"                                                                                                  
             git add processed_urls.txt || true              
             git diff --staged --quiet || git commit -m "Update processed urls"                                                                        
-            git push  
+            git push   
